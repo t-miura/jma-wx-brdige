@@ -167,3 +167,104 @@ def test_translate_forecast_fahrenheit_conversion() -> None:
     assert result["hourly_units"]["temperature_2m"] == "°F"
     idx_14 = result["hourly"]["time"].index("2026-11-17T14:00")
     assert result["hourly"]["temperature_2m"][idx_14] == 69.8
+
+
+def test_1700_issuance_preserves_today_minmax_from_earlier_report() -> None:
+    """At 19:00 JST, JMA's 17:00 VPFD51 drops today's daytime max; history must backfill it."""
+    from jma_wx_bridge.jma.models import AreaForecast, StationTemperature, TempSlot, WeatherSlot
+
+    fc_0500 = AreaForecast(
+        office_code="130000",
+        class10_code="130010",
+        area_name="東京地方",
+        report_datetime="2026-11-17T05:00:00+09:00",
+        stations=[
+            StationTemperature(
+                station_code="44132",
+                station_name="東京",
+                temperatures=[
+                    TempSlot(
+                        target_time="2026-11-17T00:00:00+09:00",
+                        temp_type="最低気温",
+                        celsius=9.0,
+                    ),
+                    TempSlot(
+                        target_time="2026-11-17T09:00:00+09:00",
+                        temp_type="最高気温",
+                        celsius=15.0,
+                    ),
+                ],
+            )
+        ],
+    )
+    fc_1100 = AreaForecast(
+        office_code="130000",
+        class10_code="130010",
+        area_name="東京地方",
+        report_datetime="2026-11-17T11:00:00+09:00",
+        stations=[
+            StationTemperature(
+                station_code="44132",
+                station_name="東京",
+                temperatures=[
+                    TempSlot(
+                        target_time="2026-11-17T09:00:00+09:00",
+                        temp_type="最高気温",
+                        celsius=15.0,
+                    ),
+                ],
+            )
+        ],
+    )
+    fc_1700 = AreaForecast(
+        office_code="130000",
+        class10_code="130010",
+        area_name="東京地方",
+        report_datetime="2026-11-17T17:00:00+09:00",
+        weather=[
+            WeatherSlot(
+                start_time="2026-11-17T17:00:00+09:00",
+                duration="PT7H",
+                weather_code="300",
+            ),
+            WeatherSlot(
+                start_time="2026-11-18T00:00:00+09:00",
+                duration="PT24H",
+                weather_code="301",
+            ),
+        ],
+        stations=[
+            StationTemperature(
+                station_code="44132",
+                station_name="東京",
+                temperatures=[
+                    TempSlot(
+                        target_time="2026-11-18T00:00:00+09:00",
+                        temp_type="最低気温",
+                        celsius=9.0,
+                    ),
+                    TempSlot(
+                        target_time="2026-11-18T09:00:00+09:00",
+                        temp_type="最高気温",
+                        celsius=21.0,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    result = translate_forecast(
+        fc_1700,
+        latitude=35.72,
+        longitude=139.62,
+        daily=["weather_code", "temperature_2m_max", "temperature_2m_min"],
+        timezone="Asia/Tokyo",
+        forecast_days=2,
+        now=datetime(2026, 11, 17, 19, 30, tzinfo=JST),
+        history=[fc_0500, fc_1100],
+    )
+    daily = result["daily"]
+    assert daily["time"] == ["2026-11-17", "2026-11-18"]
+    assert daily["weather_code"] == [63, 61]
+    assert daily["temperature_2m_max"] == [15.0, 21.0]
+    assert daily["temperature_2m_min"] == [9.0, 9.0]

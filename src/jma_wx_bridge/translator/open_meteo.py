@@ -149,27 +149,37 @@ def _diurnal_temp(hour_local: int, t_min: float, t_max: float) -> float:
 
 
 def _build_daily_minmax(
-    station: StationTemperature | None,
+    forecasts: list[AreaForecast],
 ) -> dict[date, tuple[float | None, float | None]]:
-    """Extract (min_c, max_c) keyed by local JST date."""
-    by_day: dict[date, list[tuple[str | None, float]]] = defaultdict(list)
-    if station is None:
-        return {}
+    """Merge (min_c, max_c) by JST date across chronological forecasts (oldest -> newest)."""
+    merged: dict[date, list[float | None]] = {}
 
-    for slot in station.temperatures:
-        if slot.celsius is None:
+    for fc in forecasts:
+        station = _select_station(fc)
+        if station is None:
             continue
-        dt = datetime.fromisoformat(slot.target_time).astimezone(JST)
-        by_day[dt.date()].append((slot.temp_type, slot.celsius))
+        by_day: dict[date, list[tuple[str | None, float]]] = defaultdict(list)
+        for slot in station.temperatures:
+            if slot.celsius is None:
+                continue
+            dt = _parse_iso_dt(slot.target_time).astimezone(JST)
+            by_day[dt.date()].append((slot.temp_type, slot.celsius))
 
-    result: dict[date, tuple[float | None, float | None]] = {}
-    for d, items in by_day.items():
-        mins = [val for ttype, val in items if ttype and "最低" in ttype]
-        maxs = [val for ttype, val in items if ttype and "最高" in ttype]
-        t_min = min(mins) if mins else min(val for _, val in items)
-        t_max = max(maxs) if maxs else max(val for _, val in items)
-        result[d] = (t_min, t_max)
-    return result
+        for d, items in by_day.items():
+            mins = [val for ttype, val in items if ttype and "最低" in ttype]
+            maxs = [val for ttype, val in items if ttype and "最高" in ttype]
+            untyped = [val for ttype, val in items if not ttype]
+            entry = merged.setdefault(d, [None, None])
+            if mins:
+                entry[0] = min(mins)
+            elif untyped and entry[0] is None:
+                entry[0] = min(untyped)
+            if maxs:
+                entry[1] = max(maxs)
+            elif untyped and entry[1] is None:
+                entry[1] = max(untyped)
+
+    return {d: (vals[0], vals[1]) for d, vals in merged.items()}
 
 
 def _weather_for_time(forecast: AreaForecast, target: datetime) -> int | None:
@@ -200,22 +210,21 @@ def translate_forecast(
     forecast_days: int = 3,
     generationtime_ms: float = 0.5,
     now: datetime | None = None,
+    history: list[AreaForecast] | None = None,
 ) -> dict[str, object]:
     """Translate an AreaForecast into an Open-Meteo /v1/forecast JSON-compatible dict."""
     tzinfo, tz_name, tz_abbr = _resolve_timezone(timezone)
-    ref_now = (now or datetime.fromisoformat(forecast.report_datetime)).astimezone(tzinfo)
+    ref_now = (now or _parse_iso_dt(forecast.report_datetime)).astimezone(tzinfo)
     utc_offset = int((ref_now.utcoffset() or timedelta(0)).total_seconds())
 
-    start_hour = ref_now.replace(minute=0, second=0, microsecond=0)
-    if forecast.weather:
-        first_slot_dt = datetime.fromisoformat(forecast.weather[0].start_time).astimezone(tzinfo)
-        start_hour = first_slot_dt.replace(minute=0, second=0, microsecond=0)
+    start_date = ref_now.date()
+    start_hour = datetime(start_date.year, start_date.month, start_date.day, 0, 0, tzinfo=tzinfo)
 
     total_hours = max(1, min(forecast_days, 7)) * 24
     hourly_times = [start_hour + timedelta(hours=i) for i in range(total_hours)]
 
-    station = _select_station(forecast)
-    daily_minmax = _build_daily_minmax(station)
+    chronological = [*(history or []), forecast]
+    daily_minmax = _build_daily_minmax(chronological)
 
     # Global fallback min/max if a specific day lacks station entries
     all_mins = [v[0] for v in daily_minmax.values() if v[0] is not None]

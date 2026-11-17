@@ -215,6 +215,37 @@ class SQLiteCache:
             return None
         return AreaForecast.model_validate_json(row["payload_json"])
 
+    def get_recent_forecasts(
+        self,
+        class10_code: str,
+        *,
+        office_code: str | None = None,
+        limit: int = 8,
+    ) -> list[AreaForecast]:
+        """Return up to ``limit`` recent forecasts ordered oldest-to-newest."""
+        if office_code is not None:
+            rows = self._conn.execute(
+                """
+                SELECT payload_json FROM forecasts
+                WHERE class10_code = ? AND office_code = ?
+                ORDER BY report_datetime DESC, id DESC
+                LIMIT ?
+                """,
+                (class10_code, office_code, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                """
+                SELECT payload_json FROM forecasts
+                WHERE class10_code = ?
+                ORDER BY report_datetime DESC, id DESC
+                LIMIT ?
+                """,
+                (class10_code, limit),
+            ).fetchall()
+
+        return [AreaForecast.model_validate_json(r["payload_json"]) for r in reversed(rows)]
+
     def count_forecasts(self) -> int:
         """Return total number of stored forecast rows."""
         row = self._conn.execute("SELECT COUNT(*) AS cnt FROM forecasts").fetchone()

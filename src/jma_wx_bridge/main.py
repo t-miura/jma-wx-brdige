@@ -7,6 +7,7 @@ import contextlib
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -152,8 +153,11 @@ async def forecast(
 
     area = router.resolve(latitude, longitude)
     if area is not None:
-        cached = cache.get_latest_forecast(area.class10_code, office_code=area.office_code)
-        if cached is not None:
+        recent = cache.get_recent_forecasts(
+            area.class10_code, office_code=area.office_code, limit=8
+        )
+        if recent:
+            cached = recent[-1]
             elapsed_ms = (time.perf_counter() - started) * 1000.0
             payload = translate_forecast(
                 cached,
@@ -167,6 +171,8 @@ async def forecast(
                 wind_speed_unit=wind_speed_unit,
                 forecast_days=forecast_days,
                 generationtime_ms=elapsed_ms,
+                now=datetime.now(UTC),
+                history=recent[:-1],
             )
             return JSONResponse(
                 content=payload,
