@@ -159,3 +159,31 @@ nohup uv run uvicorn jma_wx_bridge.main:app --host 127.0.0.1 --port 8000 > jma-w
 uv run pytest -v
 uv run ruff check .
 ```
+
+## Disclaimer
+
+### Data Source's Terms and Conditions
+
+This script uses [Public XML Feed from JMA](https://xml.kishou.go.jp/xmlpull.html).
+
+Terms and Conditions for all informations are applied correspondingly to theirs.
+
+### Always refer reliable, primary source for critical applications/situations
+
+Although this script uses data from JMA(Japan Meteorological Agency)'s Public service,
+no certainty nor reliability is guaranteed by any means.
+
+Use reliable source directly for any critical applications and/or situations:
+  - [JMA Official Website](https://www.jma.go.jp/bosai/#lang=en)
+  - [NHK World Japan: National Weather Forecast](https://www3.nhk.or.jp/nhkworld/news/weather/)
+  - [NHK AM/FM Broadcast Frequency Llist](https://www.nhk.or.jp/radio/info/frequency.html)
+
+
+### License
+
+This script is licensed under GNU GENERAL PUBLIC LICENSE Version 3(GPLv3).
+Refer LICENSE for full text.
+
+### General Terms
+
+Nobody's not responsible for bricked devices, dead SD cards, thermonuclear war, or you getting fired because the weahter forecast you got via this was wrong and forgot to bring the umbrella on rainy day.
