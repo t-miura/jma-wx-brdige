@@ -1,0 +1,11 @@
+local/
+.venv/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-shm
+*.db-wal
+src/jma_wx_bridge/geo/data/jma_areas.geojson
