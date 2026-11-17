@@ -186,4 +186,4 @@ Refer LICENSE for full text.
 
 ### General Terms
 
-Nobody's not responsible for bricked devices, dead SD cards, thermonuclear war, or you getting fired because the weahter forecast you got via this was wrong and forgot to bring the umbrella on rainy day.
+Nobody is responsible for any bricked devices, dead SD cards, thermonuclear wars, or for you getting fired because the weather forecast provided by this service turned out to be wrong and you forgot to bring an umbrella on a rainy day. Nor are we responsible if you end up drenched in sweat during dangerously hot summer weather. (Seriously, be careful out there!)
